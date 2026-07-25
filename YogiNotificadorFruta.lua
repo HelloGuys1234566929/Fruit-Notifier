@@ -2,6 +2,62 @@ local local_player = game.Players.LocalPlayer
 local notifier = local_player.PlayerGui:WaitForChild("Main"):WaitForChild("[OLD]Radar")
 
 -- Displays text on the same label that we use to locate fruits (notifier)
+
+local Translations = {
+	["en-us"] = {
+		scriptEnabled = "Script enabled successfully",
+		notifierOn = "Notifier (ON)",
+		notifierOff = "Notifier (OFF)",
+		notifierEnabled = "Notifier enabled successfully",
+		notifierDisabled = "Notifier disabled successfully",
+		switchNotify = "Shows spawned fruits location",
+		fruitFound = "%s found: %dm away",
+		fruitDespawned = "Fruit despawned/collected",
+		defaultFruit = "A fruit",
+		fruitPrefix = "%s fruit",
+	},
+	["pt-br"] = {
+		scriptEnabled = "Script ativado com sucesso",
+		notifierOn = "Notificador (ATIVADO)",
+		notifierOff = "Notificador (DESATIVADO)",
+		notifierEnabled = "Notificador ativado com sucesso",
+		notifierDisabled = "Notificador desativado com sucesso",
+		switchNotify = "Mostra a localizacao das frutas spawnadas",
+		fruitFound = "%s encontrada a: %dm",
+		fruitDespawned = "Fruta despawnada/coletada",
+		defaultFruit = "Uma fruta",
+		fruitPrefix = "Fruta %s",
+	},
+	["tr-tr"] = {
+		scriptEnabled = "Betik başarıyla etkinleştirildi",
+		notifierOn = "Bildirici (AÇIK)",
+		notifierOff = "Bildirici (KAPALI)",
+		notifierEnabled = "Bildirici başarıyla etkinleştirildi",
+		notifierDisabled = "Bildirici başarıyla devre dışı bırakıldı",
+		switchNotify = "Doğan meyvelerin konumunu gösterir",
+		fruitFound = "%s bulundu: %dm uzakta",
+		fruitDespawned = "Meyve kayboldu/toplandı",
+		defaultFruit = "Bir meyve",
+		fruitPrefix = "%s meyvesi",
+	},
+	["es-es"] = {
+		scriptEnabled = "Script activado con éxito",
+		notifierOn = "Notificador (ACTIVADO)",
+		notifierOff = "Notificador (DESACTIVADO)",
+		notifierEnabled = "Notificador activado con éxito",
+		notifierDisabled = "Notificador desactivado con éxito",
+		switchNotify = "Muestra la ubicación de las frutas aparecidas",
+		fruitFound = "%s encontrada a: %dm de distancia",
+		fruitDespawned = "Fruta desaparecida/recolectada",
+		defaultFruit = "Una fruta",
+		fruitPrefix = "Fruta %s",
+	},
+}
+
+-- Fetch the player's locale, format to lowercase, and fallback to "en-us" if missing
+local userLocale = string.lower(game:GetService("LocalizationService").RobloxLocaleId)
+local t = Translations[userLocale] or Translations["en-us"]
+
 local function showText(text, time)
 	notifier.Text = text
 	notifier.Visible = true
@@ -45,17 +101,11 @@ local function createLed()
 	
 	-- Shows/hides the led when twitter image button is clicked
 	twitter_button.Activated:Connect(function()
-		if led.Visible then
-			led.Visible = false
-		else
-			led.Visible = true
-		end
+		led.Visible = not led.Visible
 	end)
 
 	return led	
 end
-
-local lang = game:GetService("LocalizationService").RobloxLocaleId
 
 -- Switch to turn the notifier on/off
 local function createSwitch()
@@ -67,26 +117,20 @@ local function createSwitch()
 	
 	-- Creates the notifier switch by making a copy of an existent Blox Fruits switch
 	local switch = settings_button.DmgCounterButton:Clone()
-	if (lang == "pt-br") then
-		switch.Notify.Text = "Mostra a localizacao das frutas spawnadas"
-		switch.TextLabel.Text = "Notificador (DESATIVADO)"
-	else
-		switch.Notify.Text = "Shows spawned fruits localization"
-		switch.TextLabel.Text = "Notifier (OFF)"
-	end
+	
+	-- Applied translations for Switch label and text
+	switch.Notify.Text = t.switchNotify
+	switch.TextLabel.Text = t.notifierOff
+
 	switch.Position = UDim2.new(-1.2, 0, -4.03, 0) -- Above counter switch
-	switch.Size = UDim2.new(5, 0, 0.8, 0) -- Similar size to other switchs
+	switch.Size = UDim2.new(5, 0, 0.8, 0) -- Similar size to other switches
 	switch.Name = "NotifierSwitch"
 	
 	switch.Parent = settings_button
 	
 	-- Shows/hides the switch when settings image button is clicked
 	settings_button.Activated:Connect(function()
-		if switch.Visible then
-			switch.Visible = false
-		else
-			switch.Visible = true
-		end
+		switch.Visible = not switch.Visible
 	end)
 
 	return switch
@@ -97,22 +141,17 @@ local workspace_connection
 
 -- To be called when a fruit spawns
 local function enableNotifier(fruit)
-	local fruit_name
-	if (lang == "pt-br") then
-		fruit_name = "Uma fruta"
-	else
-		fruit_name = "A fruit"
-	end
+	local fruit_name = t.defaultFruit
 
-	-- Fruit hasn't a position but it's children has
+	-- Fruit hasn't a position but its children do
 	local fruit_child = fruit:WaitForChild("Handle")
 
-	-- The MeshPart is a children of the fruit and the name is like Meshes/fruitsname_34 so we need to extract only the name
-	for __, descendant in ipairs(fruit:GetChildren()) do -- Iterates over fruit's children
-		if descendant:IsA("MeshPart") and string.sub(descendant.Name, 1, 7) == "Meshes/" then -- Spawned fruits have their name on a MeshPart
-			local i, j = string.find(descendant.Name, '_') -- Gets the index of '_'
+	-- The MeshPart is a child of the fruit and the name is like Meshes/fruitsname_34
+	for _, descendant in ipairs(fruit:GetChildren()) do
+		if descendant:IsA("MeshPart") and string.sub(descendant.Name, 1, 7) == "Meshes/" then
+			local i = string.find(descendant.Name, '_')
 
-			fruit_name = string.sub(descendant.Name, 8, i - 1) -- Keep the fruit name after "Meshes/" and before '_'
+			fruit_name = string.sub(descendant.Name, 8, i - 1)
 
 			-- Fixing some names
 			if string.lower(fruit_name) == "magu" then
@@ -123,13 +162,10 @@ local function enableNotifier(fruit)
 				fruit_name = "Quake"
 			end
 
-			if (lang == "pt-br") then
-				fruit_name = "Fruta " .. fruit_name:gsub("^%l", string.upper)
-			else 
-				fruit_name = fruit_name:gsub("^%l", string.upper) .. " fruit"
-			end
-			
 			fruit_name = fruit_name:gsub("%d+", '') -- Removes numbers from string
+			
+			-- Applied string formatting with fruitPrefix translation key
+			fruit_name = string.format(t.fruitPrefix, fruit_name:gsub("^%l", string.upper))
 			break
 		end
 	end
@@ -140,11 +176,10 @@ local function enableNotifier(fruit)
 
 	-- Keeps updating the distance if fruit is alive and switch is on
 	while fruit_alive and workspace_connection do
-		if (lang == "pt-br") then
-			notifier.Text = fruit_name .. " encontrada a: " .. math.floor((local_player.Character:WaitForChild("UpperTorso").Position - fruit_child.Position).Magnitude * 0.15) .. 'm'
-		else 
-			notifier.Text = fruit_name .. " found at: " .. math.floor((local_player.Character:WaitForChild("UpperTorso").Position - fruit_child.Position).Magnitude * 0.15) .. "m away"
-		end
+		local distance = math.floor((local_player.Character:WaitForChild("UpperTorso").Position - fruit_child.Position).Magnitude * 0.15)
+		
+		-- Applied string formatting with fruitFound translation key
+		notifier.Text = string.format(t.fruitFound, fruit_name, distance)
 
 		task.wait(0.2)
 		fruit_alive = workspace:FindFirstChild(fruit.Name)
@@ -152,11 +187,7 @@ local function enableNotifier(fruit)
 
 	if not fruit_alive then
 		playSound("rbxassetid://4612375233", 1)
-		if (lang == "pt-br") then
-			showText("Fruta despawnada/coletada", 3)
-		else 
-			showText("Fruit despawned/colected", 3)
-		end
+		showText(t.fruitDespawned, 3)
 	end
 end
 
@@ -166,39 +197,28 @@ local switch = createSwitch()
 local function onSwitchClick()
 	-- Enables/disables the workspace connection listening for children added 
 	if workspace_connection then -- check if we are connected
-		workspace_connection:Disconnect() -- disconnect the event and stop the listening
-		workspace_connection = nil -- clear the variable
+		workspace_connection:Disconnect()
+		workspace_connection = nil
 		
 		led.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 
-		if (lang == "pt-br") then
-			switch.TextLabel.Text = "Notificador (DESATIVADO)"
-			showText("Notificador desativado com sucesso", 2)
-		else
-			switch.TextLabel.Text = "Notifier (OFF)"
-			showText("Notifier disabled successfully", 2)
-		end
+		switch.TextLabel.Text = t.notifierOff
+		showText(t.notifierDisabled, 2)
 	else -- if the connection does not exist
 		led.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
 		
-		if (lang == "pt-br") then
-			switch.TextLabel.Text = "Notificador (ATIVADO)"
-			showText("Notificador ativado com sucesso", 2)
-		else
-			switch.TextLabel.Text = "Notifier (ON)"
-			showText("Notifier enabled successfully", 2)
-		end
+		switch.TextLabel.Text = t.notifierOn
+		showText(t.notifierEnabled, 2)
 
-		-- Connect the event and start the listening
+		-- Connect the event and start listening
 		workspace_connection = workspace.ChildAdded:Connect(function(child)
-			-- If the added child is a fruit enables the notifier
-			if child.Name == "Fruit " then -- Intended space
+			if child.Name == "Fruit " then
 				task.spawn(enableNotifier, child)
 			end
 		end)
 
-		-- Looks for an already spawned fruit and enable notifier if there's one
-		local fruit = workspace:FindFirstChild("Fruit ") -- Intended space
+		-- Look for an already spawned fruit
+		local fruit = workspace:FindFirstChild("Fruit ")
 
 		if fruit then
 			task.spawn(enableNotifier, fruit)
@@ -206,16 +226,10 @@ local function onSwitchClick()
 	end
 end
 
-if (lang == "pt-br") then
-	showText("Script ativado com sucesso", 3)
-else
-	showText("Script enabled successfully", 3)
-end
+showText(t.scriptEnabled, 3)
 
 -- Enables the notifier on startup by simulating a switch click
 onSwitchClick()
 
 -- Enables/disables the notifier when notifier switch is clicked
 switch.Activated:Connect(onSwitchClick)
-
--- euyogi
